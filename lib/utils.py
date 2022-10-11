@@ -61,7 +61,7 @@ def set_debug(enable=True):
 
 def _print_list(tag, s_list, fp=sys.stdout):
     msg = "\n\t".join(s_list)
-    print("Vigiles %s: %s" % (tag, msg), file=fp)
+    print(" %s: %s" % (tag, msg), file=fp)
 
 
 def dbg(msg, extra=[]):

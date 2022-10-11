@@ -2,10 +2,11 @@
 
 ###############################################################################
 #
-# vigiles-openwrt.py -- Timesys Vigiles utility for image manifest generation
+# sbom-openwrt.py -- utility for cycloneDX SBOM generation of OpenWRT builds
 # used for security monitoring and notification for OpenWrt.
 #
 # Copyright (C) 2021 Timesys Corporation
+# Copyright (C) 2022 ads-tec Engineering GmbH
 #
 #
 # This source is released under the MIT License.
@@ -14,9 +15,8 @@
 
 
 """
-usage: vigiles-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
-                          [-K LLKEY] [-C LLDASHBOARD] [-U] [-k KCONFIG] [-u UCONFIG]
-                          [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME]
+usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
+                           [-k KCONFIG] [-u UCONFIG] [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME] [-O]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -31,11 +31,6 @@ Arguments:
                             Save Intermediate JSON Dictionaries
   -N MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
                             Custom Manifest/Report name
-  -K LLKEY, --keyfile LLKEY
-                            Path of LinuxLink credentials file
-  -C LLDASHBOARD, --dashboard-config LLDASHBOARD
-                            Path of LinuxLink Dashboard Config file
-  -U, --upload-only         Upload the manifest only; do not generate CVE report.
   -k KCONFIG, --kernel-config KCONFIG
                             Custom Kernel Config to Use
   -u UCONFIG, --uboot-config UCONFIG
@@ -46,9 +41,6 @@ Arguments:
                             File of Packages to Exclude
   -W WHTLST, --whitelist-cves WHTLST
                             File of CVEs to Ignore/Whitelist
-  -F SUBFOLDER_NAME, --subfolder SUBFOLDER_NAME
-                            Name of subfolder to upload manifest to
-  -M, --metadata-only       Generate a SBOM without performing a vulnerability scan
 """
 #######################################################################################
 
@@ -59,14 +51,14 @@ import sys
 import json
 
 from lib.openwrt import get_config_options
-from lib.manifest import write_manifest, VIGILES_OUTPUT_DIR
+from lib.sbom import write_manifest_cyclonesbom
 import lib.packages as packages
-from lib.checkcves import vigiles_request
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
 
 from lib.utils import set_debug
 from lib.utils import dbg, err
 
+OUTPUT_DIR = "sbom-output"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -81,7 +73,7 @@ def parse_args():
         "-o",
         "--output",
         dest="odir",
-        help="Vigiles Output Directory"
+        help="Output Directory"
     )
     parser.add_argument(
         "-D",
@@ -103,33 +95,6 @@ def parse_args():
         dest="manifest_name",
         help="Custom Manifest Name",
         default="",
-    )
-    parser.add_argument(
-        "-K",
-        "--keyfile",
-        dest="llkey",
-        help="Location of LinuxLink credentials file"
-    )
-    parser.add_argument(
-        "-C",
-        "--dashboard-config",
-        dest="lldashboard",
-        help="Location of LinuxLink Dashboard Config file",
-    )
-    parser.add_argument(
-        "-U",
-        "--upload-only",
-        dest="upload_only",
-        help="Upload the manifest only; do not wait for report.",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "-M",
-        "--metadata-only",
-        dest="do_check",
-        help="Only collect metadata, don\'t run online Check",
-        action="store_false",
     )
     parser.add_argument(
         "-k",
@@ -161,97 +126,61 @@ def parse_args():
         dest="whtlst",
         help="File of CVEs to Ignore/Whitelist"
     )
-    parser.add_argument(
-        '-F',
-        '--subfolder',
-        dest='subfolder_name',
-        help='Name of subfolder to upload to', default=''
-    )
     args = parser.parse_args()
 
     set_debug(args.debug)
 
-    vgls = {
+    params = {
         "write_intm": args.write_intm,
-        "bdir": os.path.abspath(args.bdir.strip()) if args.bdir else None,
-        "odir": os.path.abspath(args.odir.strip()) if args.odir else None,
+        "bdir": args.bdir.strip() if args.bdir else None,
+        "odir": args.odir.strip() if args.odir else None,
         "manifest_name": args.manifest_name.strip(),
-        "llkey": os.path.abspath(args.llkey.strip()) if args.llkey else "",
-        "lldashboard": os.path.abspath(args.lldashboard.strip()) if args.lldashboard else "",
-        "upload_only": args.upload_only,
-        "kconfig": os.path.abspath(args.kconfig.strip()) if args.kconfig else "auto",
-        "uconfig": os.path.abspath(args.uconfig.strip()) if args.uconfig else "auto",
-        "addl": os.path.abspath(args.addl.strip()) if args.addl else "",
-        "excld": os.path.abspath(args.excld.strip()) if args.excld else "",
-        "whtlst": os.path.abspath(args.whtlst.strip()) if args.whtlst else "",
-        'subfolder_name': args.subfolder_name.strip(),
-        "do_check": args.do_check,
+        "kconfig": args.kconfig.strip() if args.kconfig else "auto",
+        "uconfig": args.uconfig.strip() if args.uconfig else "auto",
+        "addl": args.addl.strip() if args.addl else "",
+        "excld": args.excld.strip() if args.excld else "",
+        "whtlst": args.whtlst.strip() if args.whtlst else ""
     }
 
-    if not os.path.exists(vgls.get("bdir")):
+    if not os.path.exists(params.get("bdir")):
         err("Invalid path for Openwrt Build directory")
         sys.exit(1)
 
-    if not vgls.get("odir", None):
-        odir = os.path.join(os.path.abspath(os.path.curdir), VIGILES_OUTPUT_DIR)
+    if not params.get("odir", None):
+        odir = os.path.join(os.path.abspath(os.path.curdir), OUTPUT_DIR)
         if not os.path.exists(odir):
             os.mkdir(odir)
-        vgls["odir"] = odir
+        params["odir"] = odir
 
-    dbg("Vigiles OpenWrt Config: %s" % json.dumps(vgls, indent=4, sort_keys=True))
-    return vgls
+    dbg("OpenWrt Config: %s" % json.dumps(params, indent=4, sort_keys=True))
+    return params
 
 
-def collect_metadata(vgls):
+def collect_metadata(params):
     dbg("Getting Config Info ...")
-    vgls["config"] = get_config_options(vgls)
-    if not vgls["config"]:
+    params["config"] = get_config_options(params)
+    if not params["config"]:
         sys.exit(1)
 
     dbg("Getting Package List ...")
-    vgls["packages"] = packages.get_package_info(vgls)
+    params["packages"] = packages.get_package_info(params)
 
-    if not vgls["packages"]:
+    if not params["packages"]:
         sys.exit(1)
 
-    if "linux" in vgls["packages"]:
+    if "linux" in params["packages"]:
         dbg("Getting Kernel Info ...")
-        get_kernel_info(vgls)
+        get_kernel_info(params)
 
     dbg("Getting U-Boot Info ...")
-    get_uboot_info(vgls)
-
-
-def run_check(vgls):
-    kconfig_path = ""
-    _kconfig = vgls.get("kconfig", "none")
-    if _kconfig != "none" and os.path.exists(_kconfig):
-        kconfig_path = _kconfig
-
-    uconfig_path = ""
-    _uconfig = vgls.get("uconfig", "none")
-    if _uconfig != "none" and os.path.exists(_uconfig):
-        uconfig_path = _uconfig
-
-    vgls_chk = {
-        "keyfile": vgls.get("llkey", ""),
-        "manifest": vgls.get("manifest", ""),
-        "report": vgls.get("report", ""),
-        "dashboard": vgls.get("lldashboard", ""),
-        "upload_only": vgls.get("upload_only", False),
-        "kconfig": kconfig_path,
-        "uconfig": uconfig_path,
-        'subfolder_name': vgls.get('subfolder_name', ''),
-    }
-    vigiles_request(vgls_chk)
+    get_uboot_info(params)
 
 
 def __main__():
-    vgls = parse_args()
-    collect_metadata(vgls)
-    write_manifest(vgls)
-    if vgls["do_check"]:
-        run_check(vgls)
+    params = parse_args()
+    collect_metadata(params)
+    write_manifest_cyclonesbom(params)
+    return 0
 
 
 __main__()
