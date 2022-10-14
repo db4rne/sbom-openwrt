@@ -41,6 +41,17 @@ def fill_in_package_info(packages, components_list):
                         append = True
                         break
 
+        curr_package.update({"group": ""})
+
+        if curr_package.get("cpe_id") is None or "unknown" in curr_package.get("cpe_id"):
+            curr_package.update({"cpe_id": "u:unknown:unknown"})
+            curr_package.update({"group": "Non-CPE"})
+        if curr_package.get("version") is None:
+            curr_package.update({"version": ""})
+
+        if "adstec" in curr_package.get("license").lower():
+            curr_package.update({"group": "Ads-tec"})
+
         if append:
             components_list.append(
                 {
@@ -48,6 +59,7 @@ def fill_in_package_info(packages, components_list):
                     "supplier": {
                         "name": curr_package.get("package_supplier")
                     },
+                    "group": curr_package.get("group"),
                     "name": curr_package.get("name"),
                     "version": curr_package.get("version"),
                     "licenses": [
@@ -78,21 +90,23 @@ def calc_diff(full_packages, packages):
     return [package for package in list(full_packages.keys()) if package not in list(packages.keys())]
 
 
-def convert_sbom_to_cyclonesbom(packages, diff=False):
+def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False):
     full_packages = copy.deepcopy(packages)
     packages = filter_non_cpe_packages(packages)
     if diff:
         diff_pkg = calc_diff(full_packages, packages)
     else:
         diff_pkg = ""
-
-    cyclone_sbom = generate_cyclone_sbom(packages)
+    if include_non_cpes:
+        cyclone_sbom = generate_cyclone_sbom(full_packages)
+    else:
+        cyclone_sbom = generate_cyclone_sbom(packages)
     return cyclone_sbom, diff_pkg
 
 
 def write_manifest_cyclonesbom(params):
     final = _init_manifest(params)
-    cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"])
+    cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"])
     mkdirhier(params["odir"])
     params["manifest"] = _manifest_name(params, final)
     info("Writing Manifest to %s" % params["manifest"])

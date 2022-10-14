@@ -15,7 +15,7 @@
 
 
 """
-usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-d] [-v GIT,SVN] [-D] [-I] [-N MANIFEST_REPORT_NAME]
+usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-d] [-i] [-v GIT,SVN] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                            [-k KCONFIG] [-u UCONFIG] [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME] [-O]
 
 Arguments:
@@ -25,7 +25,8 @@ Arguments:
                             OpenWrt Build Directory
   -o ODIR, --output ODIR
                             Vigiles Output Directory
-  -d, --diff                Enable Writing of Packages not containing CPE IDs
+  -d, --diff                Enable writing of packages not containing CPE IDs
+  -i, --include_non_cpes    Include packages in the result list not containing a CPE ID
   -v, --vcs GIT,SVN         Specify used Version Control System
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
@@ -84,6 +85,14 @@ def parse_args():
         "--diff",
         dest="diff",
         help="List packages enabled in configuration but not provided with cpe-id",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "-i",
+        "--include_non_cpes",
+        dest="include_non_cpes",
+        help="Include packages in the result list not containing a CPE ID",
         action="store_true",
         default=False,
     )
@@ -161,6 +170,7 @@ def parse_args():
         "bdir": args.bdir.strip() if args.bdir else None,
         "odir": args.odir.strip() if args.odir else None,
         "diff": args.diff,
+        "include_non_cpes": args.include_non_cpes,
         "vcs": args.vcs,
         "manifest_name": args.manifest_name.strip(),
         "kconfig": args.kconfig.strip() if args.kconfig else "auto",
