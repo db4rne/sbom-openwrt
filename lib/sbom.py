@@ -9,6 +9,7 @@
 #
 ###########################################################################
 import json
+import copy
 
 from lib.manifest import _init_manifest, _manifest_name
 from lib.utils import dbg, mkdirhier, info
@@ -73,18 +74,32 @@ def generate_cyclone_sbom(packages):
     return cyclone_sbom
 
 
-def convert_sbom_to_cyclonesbom(packages):
+def calc_diff(full_packages, packages):
+    return [package for package in list(full_packages.keys()) if package not in list(packages.keys())]
+
+
+def convert_sbom_to_cyclonesbom(packages, diff=False):
+    full_packages = copy.deepcopy(packages)
     packages = filter_non_cpe_packages(packages)
+    if diff:
+        diff_pkg = calc_diff(full_packages, packages)
+    else:
+        diff_pkg = ""
+
     cyclone_sbom = generate_cyclone_sbom(packages)
-    return cyclone_sbom
+    return cyclone_sbom, diff_pkg
 
 
 def write_manifest_cyclonesbom(params):
     final = _init_manifest(params)
-    cyclone_sbom = convert_sbom_to_cyclonesbom(params["packages"])
+    cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"])
     mkdirhier(params["odir"])
     params["manifest"] = _manifest_name(params, final)
     info("Writing Manifest to %s" % params["manifest"])
     with open(params["manifest"], "w") as f:
         json.dump(cyclone_sbom, f, indent=4, separators=(",", ": "), sort_keys=True)
         f.write("\n")
+    if params["diff"]:
+        with open(params["manifest"]+"_diff", "w") as f:
+            json.dump(diff_pkg, f)
+            f.write("\n")

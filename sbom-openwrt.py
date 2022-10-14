@@ -15,7 +15,7 @@
 
 
 """
-usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-D] [-I] [-N MANIFEST_REPORT_NAME]
+usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-d] [-v GIT,SVN] [-D] [-I] [-N MANIFEST_REPORT_NAME]
                            [-k KCONFIG] [-u UCONFIG] [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME] [-O]
 
 Arguments:
@@ -25,7 +25,8 @@ Arguments:
                             OpenWrt Build Directory
   -o ODIR, --output ODIR
                             Vigiles Output Directory
-
+  -d, --diff                Enable Writing of Packages not containing CPE IDs
+  -v, --vcs GIT,SVN         Specify used Version Control System
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
                             Save Intermediate JSON Dictionaries
@@ -41,6 +42,8 @@ Arguments:
                             File of Packages to Exclude
   -W WHTLST, --whitelist-cves WHTLST
                             File of CVEs to Ignore/Whitelist
+  -O OLDFORMAT, --oldformat
+                            Enable the old (default) vigiles-openwrt format.
 """
 #######################################################################################
 
@@ -51,6 +54,7 @@ import sys
 import json
 
 from lib.openwrt import get_config_options
+from lib.manifest import write_manifest
 from lib.sbom import write_manifest_cyclonesbom
 import lib.packages as packages
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
@@ -74,6 +78,21 @@ def parse_args():
         "--output",
         dest="odir",
         help="Output Directory"
+    )
+    parser.add_argument(
+        "-d",
+        "--diff",
+        dest="diff",
+        help="List packages enabled in configuration but not provided with cpe-id",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "-v",
+        "--vcs",
+        dest="vcs",
+        help="Specify the VCS to use",
+        default="git"
     )
     parser.add_argument(
         "-D",
@@ -126,6 +145,13 @@ def parse_args():
         dest="whtlst",
         help="File of CVEs to Ignore/Whitelist"
     )
+    parser.add_argument(
+        "-O",
+        "--oldformat",
+        dest="oldformat",
+        action="store_true",
+        help="Enable Out-Format from vigiles-openwrt"
+    )
     args = parser.parse_args()
 
     set_debug(args.debug)
@@ -134,12 +160,15 @@ def parse_args():
         "write_intm": args.write_intm,
         "bdir": args.bdir.strip() if args.bdir else None,
         "odir": args.odir.strip() if args.odir else None,
+        "diff": args.diff,
+        "vcs": args.vcs,
         "manifest_name": args.manifest_name.strip(),
         "kconfig": args.kconfig.strip() if args.kconfig else "auto",
         "uconfig": args.uconfig.strip() if args.uconfig else "auto",
         "addl": args.addl.strip() if args.addl else "",
         "excld": args.excld.strip() if args.excld else "",
-        "whtlst": args.whtlst.strip() if args.whtlst else ""
+        "whtlst": args.whtlst.strip() if args.whtlst else "",
+        "oldformat": args.oldformat,
     }
 
     if not os.path.exists(params.get("bdir")):
@@ -179,6 +208,10 @@ def collect_metadata(params):
 def __main__():
     params = parse_args()
     collect_metadata(params)
+    if params["oldformat"]:
+        dbg("Writing old vigiles-openwrt format.")
+        write_manifest(params)
+        return 0
     write_manifest_cyclonesbom(params)
     return 0
 

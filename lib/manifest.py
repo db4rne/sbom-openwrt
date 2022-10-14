@@ -51,11 +51,15 @@ def _init_manifest(vgls):
         }
 
     try:
-        _distro_version = (
-            subprocess.check_output("git describe", cwd=vgls["bdir"], shell=True)
-            .splitlines()[0]
-            .decode()
-        )
+        if "svn" in vgls["vcs"]:
+            _distro_version = subprocess.check_output("svn info", cwd=vgls["bdir"], shell=True).splitlines()[-3].decode()
+            _distro_version = "r" + str([int(num) for num in _distro_version.split() if num.isdigit()][0])
+        elif "git" in vgls["vcs"]:
+            _distro_version = (
+                subprocess.check_output("git describe", cwd=vgls["bdir"], shell=True)
+                .splitlines()[0]
+                .decode()
+            )
     except Exception as e:
         warn("Could not determine Openwrt distro version")
         warn("\tError: %s" % e)

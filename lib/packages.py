@@ -232,9 +232,9 @@ def _patched_cves(src_patches, vgls):
                 patch_text = f.read()
             except UnicodeDecodeError:
                 info(
-                    vgls,
-                    "Failed to read patch %s using UTF-8 encoding"
-                    " trying with iso8859-1" % patch_path,
+                    str(vgls),
+                    ["Failed to read patch %s using UTF-8 encoding"
+                    " trying with iso8859-1" % patch_path],
                 )
                 f.close()
                 with open(patch_path, "r", encoding="iso8859-1") as f:
