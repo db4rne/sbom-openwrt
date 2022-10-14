@@ -44,7 +44,7 @@ def fill_in_package_info(packages, components_list):
         curr_package.update({"group": ""})
 
         if curr_package.get("cpe_id") is None or "unknown" in curr_package.get("cpe_id"):
-            curr_package.update({"cpe_id": "u:unknown:unknown"})
+            curr_package.update({"cpe_id": "cpe:/a:unknown:unknown"})
             curr_package.update({"group": "Non-CPE"})
         if curr_package.get("version") is None:
             curr_package.update({"version": ""})
