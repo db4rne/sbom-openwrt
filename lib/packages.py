@@ -355,9 +355,6 @@ def get_package_info(vgls):
     dbg("Getting Toolchain Info ...")
     pkg_dict = get_toolchain_info(vgls, known_packages)
 
-    # remove makefile path
-    pkg_dict = _remove_makefile_from_pkg_data(pkg_dict)
-
     write_intm_json(vgls, "config-packages", pkg_dict)
     return pkg_dict
 

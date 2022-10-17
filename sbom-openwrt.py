@@ -65,6 +65,7 @@ from lib.utils import dbg, err
 
 OUTPUT_DIR = "sbom-output"
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -190,6 +191,11 @@ def parse_args():
         if not os.path.exists(odir):
             os.mkdir(odir)
         params["odir"] = odir
+
+    if not params.get("excld", None):
+        if not os.path.isfile(params["excld"]):
+            err(f"File {params.get('excld')} does not exist")
+            sys.exit(1)
 
     dbg("OpenWrt Config: %s" % json.dumps(params, indent=4, sort_keys=True))
     return params

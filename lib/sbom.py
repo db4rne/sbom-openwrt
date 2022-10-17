@@ -87,7 +87,12 @@ def generate_cyclone_sbom(packages):
 
 
 def calc_diff(full_packages, packages):
-    return [package for package in list(full_packages.keys()) if package not in list(packages.keys())]
+    packages = [package for package in list(full_packages.keys()) if package not in list(packages.keys())]
+    for pkg_name in list(full_packages.keys()):
+        curr_pkg = full_packages.get(pkg_name)
+        if "adstec" in curr_pkg.get("license").lower():
+            packages.remove(pkg_name)
+    return packages
 
 
 def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False):
@@ -104,7 +109,27 @@ def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False):
     return cyclone_sbom, diff_pkg
 
 
+def exclude_packages(packages, exclude_file):
+    with open(exclude_file, "r") as f:
+        for line in f:
+            exclude_list = line.replace("[", "")
+            exclude_list = exclude_list.replace("]", "")
+            exclude_list = exclude_list.strip().split(",")
+    tmp_list = []
+    for element in exclude_list:
+        tmp = element.replace("\"", "")
+        tmp = tmp.replace(" ", "")
+        tmp_list.append(tmp)
+    exclude_list = tmp_list
+    for pkg_name in list(packages.keys()):
+        curr_pkg = packages.get(pkg_name)
+        if curr_pkg["name"] in exclude_list:
+            del packages[pkg_name]
+
+
 def write_manifest_cyclonesbom(params):
+    if params.get("excld"):
+        exclude_packages(params["packages"], params["excld"])
     final = _init_manifest(params)
     cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"])
     mkdirhier(params["odir"])
@@ -114,6 +139,6 @@ def write_manifest_cyclonesbom(params):
         json.dump(cyclone_sbom, f, indent=4, separators=(",", ": "), sort_keys=True)
         f.write("\n")
     if params["diff"]:
-        with open(params["manifest"]+"_diff", "w") as f:
+        with open(params["manifest"] + "_diff", "w") as f:
             json.dump(diff_pkg, f)
             f.write("\n")
