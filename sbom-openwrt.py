@@ -192,7 +192,7 @@ def parse_args():
             os.mkdir(odir)
         params["odir"] = odir
 
-    if not params.get("excld", None):
+    if params.get("excld"):
         if not os.path.isfile(params["excld"]):
             err(f"File {params.get('excld')} does not exist")
             sys.exit(1)

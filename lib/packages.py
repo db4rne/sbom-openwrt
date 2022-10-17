@@ -174,6 +174,8 @@ def _get_pkg_make_info(pkgs, bdir):
                     )
                     l_split = l.split(":")
                     mk_info[l_split[0].strip().upper()] = l_split[1].strip()
+                elif "Copyright" in l and "ads-tec" in l:
+                    mk_info["PKG_LICENSE"] = "ADSTEC-NO-LICENSE"
         pkgs[pkg]["name"] = pkg
         pkgs[pkg]["rawname"] = pkgs[pkg].get("name")
         pkgs[pkg]["version"] = _get_pkg_version(mk_info, bdir, makefile_dir)
