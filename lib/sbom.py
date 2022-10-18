@@ -12,7 +12,7 @@ import json
 import copy
 
 from lib.manifest import _init_manifest, _manifest_name
-from lib.utils import dbg, mkdirhier, info
+from lib.utils import dbg, mkdirhier, info, err
 
 CYCLONE_SPEC_VERSION = "1.4"
 
@@ -26,7 +26,7 @@ def filter_non_cpe_packages(packages):
     return packages
 
 
-def fill_in_package_info(packages, components_list):
+def fill_in_package_info(packages, components_list, err_on_non_cpe):
     name_list = []
     for package_name in list(packages.keys()):
         curr_package = packages.get(package_name)
@@ -44,8 +44,12 @@ def fill_in_package_info(packages, components_list):
         curr_package.update({"group": ""})
 
         if curr_package.get("cpe_id") is None or "unknown" in curr_package.get("cpe_id"):
-            curr_package.update({"cpe_id": "cpe:/a:unknown:unknown"})
-            curr_package.update({"group": "Non-CPE"})
+            if not err_on_non_cpe:
+                curr_package.update({"cpe_id": "cpe:/a:unknown:unknown"})
+                curr_package.update({"group": "Non-CPE"})
+            else:
+                err(f"{package_name} has no CPE-ID! Aborting...")
+                return False
         if curr_package.get("version") is None:
             curr_package.update({"version": ""})
 
@@ -74,7 +78,7 @@ def fill_in_package_info(packages, components_list):
             )
 
 
-def generate_cyclone_sbom(packages):
+def generate_cyclone_sbom(packages, err_on_non_cpe):
     cyclone_sbom = {
         "bomFormat": "CycloneDX",
         "specVersion": CYCLONE_SPEC_VERSION,
@@ -82,8 +86,10 @@ def generate_cyclone_sbom(packages):
         "version": 1,
         "components": []
     }
-    fill_in_package_info(packages, cyclone_sbom["components"])
-    return cyclone_sbom
+    if fill_in_package_info(packages, cyclone_sbom["components"], err_on_non_cpe):
+        return cyclone_sbom
+    else:
+        return False
 
 
 def calc_diff(full_packages, packages):
@@ -95,7 +101,7 @@ def calc_diff(full_packages, packages):
     return packages
 
 
-def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False):
+def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False, err_on_non_cpe=False):
     full_packages = copy.deepcopy(packages)
     packages = filter_non_cpe_packages(packages)
     if diff:
@@ -103,9 +109,9 @@ def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False):
     else:
         diff_pkg = ""
     if include_non_cpes:
-        cyclone_sbom = generate_cyclone_sbom(full_packages)
+        cyclone_sbom = generate_cyclone_sbom(full_packages, err_on_non_cpe)
     else:
-        cyclone_sbom = generate_cyclone_sbom(packages)
+        cyclone_sbom = generate_cyclone_sbom(packages, err_on_non_cpe)
     return cyclone_sbom, diff_pkg
 
 
@@ -131,14 +137,20 @@ def write_manifest_cyclonesbom(params):
     if params.get("excld"):
         exclude_packages(params["packages"], params["excld"])
     final = _init_manifest(params)
-    cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"])
-    mkdirhier(params["odir"])
-    params["manifest"] = _manifest_name(params, final)
-    info("Writing Manifest to %s" % params["manifest"])
-    with open(params["manifest"], "w") as f:
-        json.dump(cyclone_sbom, f, indent=4, separators=(",", ": "), sort_keys=True)
-        f.write("\n")
-    if params["diff"]:
-        with open(params["manifest"] + "_diff", "w") as f:
-            json.dump(diff_pkg, f)
+    cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"],
+                                                         params["err_on_non_cpe"])
+    if cyclone_sbom:
+        mkdirhier(params["odir"])
+        params["manifest"] = _manifest_name(params, final)
+        info("Writing Manifest to %s" % params["manifest"])
+        with open(params["manifest"], "w") as f:
+            json.dump(cyclone_sbom, f, indent=4, separators=(",", ": "), sort_keys=True)
             f.write("\n")
+        if params["diff"]:
+            with open(params["manifest"] + "_diff", "w") as f:
+                json.dump(diff_pkg, f)
+                f.write("\n")
+        return 0
+    else:
+        err("Error on creation of cyclone-sbom!")
+        return 255

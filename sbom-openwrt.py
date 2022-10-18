@@ -27,6 +27,7 @@ Arguments:
                             Vigiles Output Directory
   -d, --diff                Enable writing of packages not containing CPE IDs
   -i, --include_non_cpes    Include packages in the result list not containing a CPE ID
+  -err, --err_on_non_cpe    Enable error when finding a package without CPE ID, which is not included in the EXCLD whitelist.
   -v, --vcs GIT,SVN         Specify used Version Control System
   -D, --enable-debug        Enable Debug Output
   -I, --write-intermediate
@@ -61,7 +62,7 @@ import lib.packages as packages
 from lib.kernel_uboot import get_kernel_info, get_uboot_info
 
 from lib.utils import set_debug
-from lib.utils import dbg, err
+from lib.utils import dbg, err, warn
 
 OUTPUT_DIR = "sbom-output"
 
@@ -96,6 +97,14 @@ def parse_args():
         help="Include packages in the result list not containing a CPE ID",
         action="store_true",
         default=False,
+    )
+    parser.add_argument(
+        "-err",
+        "--err_on_non_cpe",
+        dest="err_on_non_cpe",
+        help="Enable error when finding a package without CPE ID, which is not included in the EXCLD whitelist.",
+        action="store_true",
+        default=False
     )
     parser.add_argument(
         "-v",
@@ -147,7 +156,7 @@ def parse_args():
         "-E",
         "--exclude-packages",
         dest="excld",
-        help="File of Packages to Exclude"
+        help="File which contains a List of Packages to Exclude"
     )
     parser.add_argument(
         "-W",
@@ -172,6 +181,7 @@ def parse_args():
         "odir": args.odir.strip() if args.odir else None,
         "diff": args.diff,
         "include_non_cpes": args.include_non_cpes,
+        "err_on_non_cpe": args.err_on_non_cpe,
         "vcs": args.vcs,
         "manifest_name": args.manifest_name.strip(),
         "kconfig": args.kconfig.strip() if args.kconfig else "auto",
@@ -196,6 +206,10 @@ def parse_args():
         if not os.path.isfile(params["excld"]):
             err(f"File {params.get('excld')} does not exist")
             sys.exit(1)
+
+    if params.get("err_on_non_cpe"):
+        if not params.get("excld"):
+            warn("err_on_non_cpe flag passed, but no package excluded")
 
     dbg("OpenWrt Config: %s" % json.dumps(params, indent=4, sort_keys=True))
     return params
@@ -228,8 +242,7 @@ def __main__():
         dbg("Writing old vigiles-openwrt format.")
         write_manifest(params)
         return 0
-    write_manifest_cyclonesbom(params)
-    return 0
+    sys.exit(write_manifest_cyclonesbom(params))
 
 
 __main__()
