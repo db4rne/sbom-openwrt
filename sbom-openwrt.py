@@ -30,6 +30,8 @@ Arguments:
                             Enable writing of packages not containing CPE IDs
   -i INCLUDE_NON_CPES, --include_non_cpes
                             Include packages in the result list not containing a CPE ID
+  -ignore IGNORE_ERR_LIST, --ignore_err_list
+                            File of Packages to ignore err (works in combination with -err)
   -err ERR_ON_NON_CPE , --err_on_non_cpe
                             Enable error when finding a package without CPE ID, which is
                                 not included in the EXCLD whitelist.
@@ -103,6 +105,13 @@ def parse_args():
         help="Include packages in the result list not containing a CPE ID",
         action="store_true",
         default=False,
+    )
+    parser.add_argument(
+        "-ignore",
+        "--ignore_err_list",
+        dest="ignore_err_list",
+        help="File of Packages to ignore err (works in combination with -err)",
+        default="",
     )
     parser.add_argument(
         "-err",
@@ -187,6 +196,7 @@ def parse_args():
         "odir": args.odir.strip() if args.odir else None,
         "diff": args.diff,
         "include_non_cpes": args.include_non_cpes,
+        "ignore_err_list": args.ignore_err_list,
         "err_on_non_cpe": args.err_on_non_cpe,
         "vcs": args.vcs,
         "manifest_name": args.manifest_name.strip(),
@@ -213,8 +223,13 @@ def parse_args():
             err(f"File {params.get('excld')} does not exist")
             sys.exit(1)
 
+    if params.get("ignore_err_list"):
+        if not os.path.isfile(params["ignore_err_list"]):
+            err(f"File {params.get('ignore_err_list')} does not exist")
+            sys.exit(1)
+
     if params.get("err_on_non_cpe"):
-        if not params.get("excld"):
+        if not params.get("excld") and not params.get("ignore_err_list"):
             warn("err_on_non_cpe flag passed, but no package excluded")
 
     dbg("OpenWrt Config: %s" % json.dumps(params, indent=4, sort_keys=True))

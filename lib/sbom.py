@@ -26,7 +26,7 @@ def filter_non_cpe_packages(packages):
     return packages
 
 
-def fill_in_package_info(packages, components_list, err_on_non_cpe):
+def fill_in_package_info(packages, components_list, err_on_non_cpe, ignore_err_list):
     name_list = []
     for package_name in list(packages.keys()):
         curr_package = packages.get(package_name)
@@ -48,8 +48,17 @@ def fill_in_package_info(packages, components_list, err_on_non_cpe):
                 curr_package.update({"cpe_id": "cpe:/a:unknown:unknown"})
                 curr_package.update({"group": "Non-CPE"})
             else:
-                err(f"{package_name} has no CPE-ID! Aborting...")
-                return False
+                if not ignore_err_list:
+                    err(f"{package_name} has no CPE-ID! Aborting...")
+                    return False
+                else:
+                    if package_name in ignore_err_list:
+                        curr_package.update({"cpe_id": "cpe:/a:unknown:unknown"})
+                        curr_package.update({"group": "Non-CPE"})
+                    else:
+                        err(f"{package_name} not in ignore_err_list and has no CPE-ID! Aborting...")
+                        return False
+
         if curr_package.get("version") is None:
             curr_package.update({"version": ""})
 
@@ -79,7 +88,7 @@ def fill_in_package_info(packages, components_list, err_on_non_cpe):
     return True
 
 
-def generate_cyclone_sbom(packages, err_on_non_cpe):
+def generate_cyclone_sbom(packages, err_on_non_cpe, ignore_err_list):
     cyclone_sbom = {
         "bomFormat": "CycloneDX",
         "specVersion": CYCLONE_SPEC_VERSION,
@@ -87,7 +96,7 @@ def generate_cyclone_sbom(packages, err_on_non_cpe):
         "version": 1,
         "components": []
     }
-    if fill_in_package_info(packages, cyclone_sbom["components"], err_on_non_cpe):
+    if fill_in_package_info(packages, cyclone_sbom["components"], err_on_non_cpe, ignore_err_list):
         return cyclone_sbom
     else:
         return False
@@ -102,7 +111,7 @@ def calc_diff(full_packages, packages):
     return packages
 
 
-def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False, err_on_non_cpe=False):
+def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False, err_on_non_cpe=False, ignore_err_list=[]):
     full_packages = copy.deepcopy(packages)
     packages = filter_non_cpe_packages(packages)
     if diff:
@@ -110,14 +119,14 @@ def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False, er
     else:
         diff_pkg = ""
     if include_non_cpes:
-        cyclone_sbom = generate_cyclone_sbom(full_packages, err_on_non_cpe)
+        cyclone_sbom = generate_cyclone_sbom(full_packages, err_on_non_cpe, ignore_err_list)
     else:
-        cyclone_sbom = generate_cyclone_sbom(packages, err_on_non_cpe)
+        cyclone_sbom = generate_cyclone_sbom(packages, err_on_non_cpe, ignore_err_list)
     return cyclone_sbom, diff_pkg
 
 
-def exclude_packages(packages, exclude_file):
-    with open(exclude_file, "r") as f:
+def read_package_list(todo_file):
+    with open(todo_file, "r") as f:
         for line in f:
             exclude_list = line.replace("[", "")
             exclude_list = exclude_list.replace("]", "")
@@ -128,6 +137,11 @@ def exclude_packages(packages, exclude_file):
         tmp = tmp.replace(" ", "")
         tmp_list.append(tmp)
     exclude_list = tmp_list
+    return exclude_list
+
+
+def exclude_packages(packages, exclude_file):
+    exclude_list = read_package_list(exclude_file)
     for pkg_name in list(packages.keys()):
         if pkg_name in exclude_list:
             dbg(f"Remove excluded Package {pkg_name} from list!")
@@ -139,7 +153,7 @@ def write_manifest_cyclonesbom(params):
     if params.get("excld"):
         exclude_packages(params["packages"], params["excld"])
     cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"],
-                                                         params["err_on_non_cpe"])
+                                                         params["err_on_non_cpe"], read_package_list(params["ignore_err_list"]))
     if cyclone_sbom:
         mkdirhier(params["odir"])
         params["manifest"] = _manifest_name(params, final)
