@@ -15,8 +15,9 @@
 
 
 """
-usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-d] [-i] [-v GIT,SVN] [-D] [-I] [-N MANIFEST_REPORT_NAME]
-                           [-k KCONFIG] [-u UCONFIG] [-A ADDL] [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME] [-O]
+usage: sbom-openwrt.py [-h] [-b BDIR] [-o ODIR] [-d DIFF] [-i INCLUDE_NON_CPES] [-v GIT,SVN] [-D ENABLE-DEBUG]
+                            [-I WRITE-intermediate] [-N MANIFEST_REPORT_NAME] [-k KCONFIG] [-u UCONFIG] [-A ADDL]
+                            [-E EXCLD] [-W WHTLST] [-F SUBFOLDER_NAME] [-O OLDFORMAT]
 
 Arguments:
   -h, --help                show this help message and exit
@@ -25,12 +26,17 @@ Arguments:
                             OpenWrt Build Directory
   -o ODIR, --output ODIR
                             Vigiles Output Directory
-  -d, --diff                Enable writing of packages not containing CPE IDs
-  -i, --include_non_cpes    Include packages in the result list not containing a CPE ID
-  -err, --err_on_non_cpe    Enable error when finding a package without CPE ID, which is not included in the EXCLD whitelist.
-  -v, --vcs GIT,SVN         Specify used Version Control System
-  -D, --enable-debug        Enable Debug Output
-  -I, --write-intermediate
+  -d DIFF, --diff
+                            Enable writing of packages not containing CPE IDs
+  -i INCLUDE_NON_CPES, --include_non_cpes
+                            Include packages in the result list not containing a CPE ID
+  -err ERR_ON_NON_CPE , --err_on_non_cpe
+                            Enable error when finding a package without CPE ID, which is
+                                not included in the EXCLD whitelist.
+  -v VCS, --vcs GIT,SVN     Specify used Version Control System
+  -D ENABLE-DEBUG, --enable-debug
+                            Enable Debug Output
+  -I WRITE-intermediate, --write-intermediate
                             Save Intermediate JSON Dictionaries
   -N MANIFEST_REPORT_NAME, --name MANIFEST_REPORT_NAME
                             Custom Manifest/Report name
