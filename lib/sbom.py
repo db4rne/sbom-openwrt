@@ -76,6 +76,7 @@ def fill_in_package_info(packages, components_list, err_on_non_cpe):
                     "cpe": curr_package.get("cpe_id") + ":" + curr_package.get("version"),
                 }
             )
+    return True
 
 
 def generate_cyclone_sbom(packages, err_on_non_cpe):
@@ -128,15 +129,15 @@ def exclude_packages(packages, exclude_file):
         tmp_list.append(tmp)
     exclude_list = tmp_list
     for pkg_name in list(packages.keys()):
-        curr_pkg = packages.get(pkg_name)
-        if curr_pkg["name"] in exclude_list:
+        if pkg_name in exclude_list:
+            dbg(f"Remove excluded Package {pkg_name} from list!")
             del packages[pkg_name]
 
 
 def write_manifest_cyclonesbom(params):
+    final = _init_manifest(params)
     if params.get("excld"):
         exclude_packages(params["packages"], params["excld"])
-    final = _init_manifest(params)
     cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"],
                                                          params["err_on_non_cpe"])
     if cyclone_sbom:
