@@ -134,6 +134,7 @@ def read_package_list(todo_file):
     tmp_list = []
     for element in exclude_list:
         tmp = element.replace("\"", "")
+        tmp = tmp.replace("\'", "")
         tmp = tmp.replace(" ", "")
         tmp_list.append(tmp)
     exclude_list = tmp_list
