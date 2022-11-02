@@ -126,19 +126,22 @@ def convert_sbom_to_cyclonesbom(packages, diff=False, include_non_cpes=False, er
 
 
 def read_package_list(todo_file):
-    with open(todo_file, "r") as f:
-        for line in f:
-            exclude_list = line.replace("[", "")
-            exclude_list = exclude_list.replace("]", "")
-            exclude_list = exclude_list.strip().split(",")
-    tmp_list = []
-    for element in exclude_list:
-        tmp = element.replace("\"", "")
-        tmp = tmp.replace("\'", "")
-        tmp = tmp.replace(" ", "")
-        tmp_list.append(tmp)
-    exclude_list = tmp_list
-    return exclude_list
+    if todo_file:
+        with open(todo_file, "r") as f:
+            for line in f:
+                exclude_list = line.replace("[", "")
+                exclude_list = exclude_list.replace("]", "")
+                exclude_list = exclude_list.strip().split(",")
+        tmp_list = []
+        for element in exclude_list:
+            tmp = element.replace("\"", "")
+            tmp = tmp.replace("\'", "")
+            tmp = tmp.replace(" ", "")
+            tmp_list.append(tmp)
+        exclude_list = tmp_list
+        return exclude_list
+    else:
+        return []
 
 
 def exclude_packages(packages, exclude_file):
