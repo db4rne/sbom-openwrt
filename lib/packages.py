@@ -366,7 +366,8 @@ def get_libc_info(vgls):
         return
     libc_package = vgls["config"]["config-libc"]
     make_path = os.path.join(vgls["bdir"], "toolchain", libc_package, "common.mk")
-    pkg_name, pkg_version, pkg_license, package_supplier = libc_package, UNSET, UNKNOWN, PACKAGE_SUPPLIER
+    pkg_name, pkg_version, pkg_license, package_supplier, cpe_id = libc_package, UNSET, UNKNOWN, PACKAGE_SUPPLIER, \
+                                                                   UNKNOWN
     if os.path.exists(make_path):
         with open(make_path) as mk:
             mk_info = {}
@@ -377,6 +378,9 @@ def get_libc_info(vgls):
                     pkg_version = l.strip().split(":=")[-1]
                 elif l.startswith("PKG_LICENSE") and len(l.strip().split(":=")) == 2:
                     pkg_license = l.strip().split(":=")[-1]
+                elif l.startswith("PKG_CPE_ID") and len(l.strip().split(":=")) == 2:
+                    cpe_id = l.strip().split(":=")[-1]
+
     if vgls["config"].get("config-%s-version" % pkg_name):
         pkg_version = vgls["config"].get("config-%s-version" % pkg_name)
     libc_info = {
@@ -386,6 +390,7 @@ def get_libc_info(vgls):
         "license": pkg_license,
         "cve_product": libc_package,
         "cve_version": pkg_version,
+        "cpe_id": cpe_id,
         "package_supplier": package_supplier,
         "download_location": UNKNOWN,
         "download_protocol": UNKNOWN,
