@@ -13,6 +13,7 @@ import errno
 import json
 import os
 import subprocess
+from subprocess import check_output
 import sys
 
 
@@ -145,12 +146,6 @@ def get_makefile_variables(makefile_dir, env, mk_varlist, mk_extra=None):
     if mk_extra:
         cmd.insert(1, mk_extra)
 
-    mk_vals = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env
-    )
-    out, _ = mk_vals.communicate()
-    op = out.decode().strip().splitlines()
+    output = check_output(cmd, env=env, stderr=subprocess.PIPE, timeout=5)
+    op = output.decode().strip().splitlines()
     return op
