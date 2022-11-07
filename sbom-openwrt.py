@@ -211,6 +211,8 @@ def parse_args():
     if not os.path.exists(params.get("bdir")):
         err("Invalid path for Openwrt Build directory")
         sys.exit(1)
+    else:
+        params["bdir"] = os.path.abspath(params.get("bdir"))
 
     if not params.get("odir", None):
         odir = os.path.join(os.path.abspath(os.path.curdir), OUTPUT_DIR)
