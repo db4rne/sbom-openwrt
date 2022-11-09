@@ -15,23 +15,12 @@ import re
 import sys
 import subprocess
 from urllib.parse import urljoin
-from threading import Thread, Event
 
 from .utils import mkdirhier
 from .utils import dbg, info, warn, err, UNKNOWN
 from .utils import get_makefile_variables
 from .packages import _patched_cves
 
-
-class UbootSearchThread(Thread):
-    def __init__(self, search_dir):
-        Thread.__init__(self)
-        self.value = None
-        self.search_dir = search_dir
-        self.event = Event()
-
-    def run(self):
-        self.value = _search_uboot(self.search_dir, self.event)
 
 def _get_toolchain_dir_name(vgls):
     board = vgls["config"].get("config-target-board", "")
@@ -85,24 +74,6 @@ def _get_kernel_dir(vgls):
     return kdir
 
 
-def _search_uboot(target_dir, event):
-    stop_flag = False
-    udir = None
-    for root, dirs, files in os.walk(target_dir, followlinks=True):
-        if event.isSet():
-            break
-        if stop_flag:
-            break
-        if not os.path.basename(root).startswith("u-boot"):
-            continue
-        for f in files:
-            if not f.endswith("Makefile"):
-                continue
-            udir = root
-            stop_flag = True
-            break
-    return udir
-
 def _get_uboot_dir(vgls):
     udir = ""
     build_dir = os.path.join(vgls.get("bdir"), "build_dir")
@@ -120,12 +91,20 @@ def _get_uboot_dir(vgls):
 
     if not os.path.exists(target_dir_path):
         return ""
-    search_thread = UbootSearchThread(search_dir=target_dir_path)
-    search_thread.start()
-    search_thread.join(120)
-    search_thread.event.set()
-    ret_val = search_thread.value
-    return ret_val
+
+    stop_flag = False
+    for root, dirs, files in os.walk(target_dir_path, followlinks=True):
+        if stop_flag:
+            break
+        if not os.path.basename(root).startswith("u-boot"):
+            continue
+        for f in files:
+            if not f.endswith("Makefile"):
+                continue
+            udir = root
+            stop_flag = True
+            break
+    return udir
 
 
 def _get_version_from_makefile(target_path, with_extra=True):
