@@ -151,9 +151,19 @@ def exclude_packages(packages, exclude_file):
             dbg(f"Remove excluded Package {pkg_name} from list!")
             del packages[pkg_name]
 
-
+def append_external_cpes(params):
+    with open(params["append_external_cpes"], "r") as f:
+        data = json.load(f)
+    for package_name in params["packages"].keys():
+        for ext_package in list(data.keys()):
+            if ext_package == package_name:
+                new_val = data[ext_package]
+                params["packages"][package_name]["cpe_id"] = new_val
+    return params
 def write_manifest_cyclonesbom(params):
     final = _init_manifest(params)
+    if params.get("append_external_cpes"):
+        params = append_external_cpes(params)
     if params.get("excld"):
         exclude_packages(params["packages"], params["excld"])
     cyclone_sbom, diff_pkg = convert_sbom_to_cyclonesbom(params["packages"], params["diff"], params["include_non_cpes"],

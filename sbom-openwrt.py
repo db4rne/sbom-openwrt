@@ -24,6 +24,8 @@ Arguments:
 
   -b BDIR, --build BDIR
                             OpenWrt Build Directory
+  -a APPEND_EXTERNAL_CPES, --append_external_cpes
+                            File containing package names and their associated CPE IDs.
   -o ODIR, --output ODIR
                             Vigiles Output Directory
   -d DIFF, --diff
@@ -83,6 +85,13 @@ def parse_args():
         required=True,
         dest="bdir",
         help="OpenWrt Build Directory"
+    )
+    parser.add_argument(
+        "-a",
+        "--append_external_cpes",
+        dest="append_external_cpes",
+        help="File containing package names and their associated CPE IDs.",
+        default="",
     )
     parser.add_argument(
         "-o",
@@ -193,6 +202,7 @@ def parse_args():
     params = {
         "write_intm": args.write_intm,
         "bdir": args.bdir.strip() if args.bdir else None,
+        "append_external_cpes": args.append_external_cpes,
         "odir": args.odir.strip() if args.odir else None,
         "diff": args.diff,
         "include_non_cpes": args.include_non_cpes,
@@ -224,10 +234,14 @@ def parse_args():
         if not os.path.isfile(params["excld"]):
             err(f"File {params.get('excld')} does not exist")
             sys.exit(1)
-
     if params.get("ignore_err_list"):
         if not os.path.isfile(params["ignore_err_list"]):
             err(f"File {params.get('ignore_err_list')} does not exist")
+            sys.exit(1)
+
+    if params.get("append_external_cpes"):
+        if not os.path.isfile(params["append_external_cpes"]):
+            err(f"File {params.get('append_external_cpes')} does not exist")
             sys.exit(1)
 
     if params.get("err_on_non_cpe"):
