@@ -39,7 +39,7 @@ def kconfig_to_py(name):
 
 def kconfig_bool(value):
     """Helper to parse an affirmative either from make or kconfig"""
-    positive = ["y", "yes", "true"]
+    positive = ["m", "y", "yes", "true"]
     negative = ["n", "no", "false"]
     lcase = value.lower()
     if lcase in positive:
